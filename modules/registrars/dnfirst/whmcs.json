@@ -1,0 +1,30 @@
+{
+  "schema": "1.0",
+  "type": "whmcs-registrars",
+  "name": "dnfirst",
+  "license": "proprietary",
+  "category": "domains",
+  "description": {
+    "name": "DNFirst",
+    "tagline": "DNFirst is a leading domain registrar in the US and one of the oldest in the world.",
+    "long": "## Apply for an account\nWHMCS users get exclusive access to signup with no setup fees and preferential pricing.",
+    "features": [
+      "Domain Registration, Transfer & Renewal",
+      "Manage all domain registrations from one place",
+      "Domain Locking, EPP Transfer Code"
+    ]
+  },
+  "logo": {
+    "filename": "logo.png"
+  },
+  "support": {
+    "homepage": "https:\/\/www.dnfirst.com\/",
+    "docs_url": "https:\/\/www.dnfirst.com\/"
+  },
+  "authors": [
+    {
+      "name": "DNFirst",
+      "homepage": "https:\/\/github.com\/dnfirst\/whmcs\/"
+    }
+  ]
+}
