@@ -55,7 +55,7 @@ function DNFirst_getConfigArray() {
 		'APIKey' => [
 			'FriendlyName' => 'API Key',
 			'Type' => 'password',
-			'Size' => '25',
+			'Size' => '48',
 			'Default' => '',
 			'Description' => 'Enter secret value here',
 		],
@@ -68,7 +68,7 @@ function DNFirst_getConfigArray() {
 		'SandboxAPIKey' => [
 			'FriendlyName' => 'Sandbox API Key',
 			'Type' => 'password',
-			'Size' => '25',
+			'Size' => '48',
 			'Default' => '',
 			'Description' => 'Enter secret value here',
 		],
@@ -81,7 +81,8 @@ function DNFirst_getConfigArray() {
 function DNFirst_GetApi($params) {
 	$api = new ApiClient();
 	$api->sandboxMode = $params['SandboxMode'];
-	$api->authToken = $params['APIKey'];
+	$api->authToken = $params['SandboxMode'] ? $params['SandboxAPIKey'] : $params['APIKey'];
+
 	return $api;
 }
 /**
@@ -793,12 +794,12 @@ function DNFirst_GetDNS($params) {
 		}
 
 		$hostRecords = array();
-		foreach ($response->results['records'] as $record) {
+		foreach ($response->results as $record) {
 			$hostRecords[] = array(
 				"hostname" => $record['name'], // eg. www
 				"type" => $record['type'], // eg. A
-				"address" => $record['address'], // eg. 10.0.0.1
-				"priority" => $record['mxpref'], // eg. 10 (N/A for non-MX records)
+				"address" => $record['content'], // eg. 10.0.0.1
+				"priority" => $record['pri'], // eg. 10 (N/A for non-MX records)
 			);
 		}
 		return $hostRecords;
@@ -820,32 +821,25 @@ function DNFirst_GetDNS($params) {
  *
  */
 function DNFirst_SaveDNS($params) {
-	// domain parameters
-	$sld = $params['sld'];
-	$tld = $params['tld'];
-
-	// dns record parameters
-	$dnsrecords = $params['dnsrecords'];
-
-	// Build post data
-	$postfields = array(
-		'domain' => $sld . '.' . $tld,
-		'records' => $dnsrecords,
-	);
-
+	$domainName = $params['sld'] . '.' . $params['tld'];
+	$api = DNFirst_GetApi($params);
 	try {
-		$api = DNFirst_GetApi($params);
-		$api->call('GetDNSHostRecords', $postfields);
+		$records = $params['hostrecords'];
 
-		return array(
-			'success' => 'success',
-		);
+		$response = $api->call('dns/' . $domainName . '/records', 'POST', $records);
+		if ( $response->status === 404 ) {
+			throw new Exception("Domain name does not exist");
+		}
+		if ( $response->status !== 201 ) {
+			throw new Exception("Failed to update dns records");
+		}
 
-	} catch (Exception $e) {
+	} catch (\Exception $e) {
 		return array(
 			'error' => $e->getMessage(),
 		);
 	}
+
 }
 
 /**
@@ -1187,12 +1181,10 @@ function DNFirst_TransferSync($params) {
 	}
 }
 
-function DNFirst_ClientAreaCustomButtonArray() {
-	return array();
+function DNFirst_ClientAreaCustomButtonArray($params) {
 }
 
-function DNFirst_ClientAreaAllowedFunctions() {
-	return array();
+function DNFirst_ClientAreaAllowedFunctions($params) {
 }
 
 function DNFirst_ClientArea($params) {
