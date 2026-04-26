@@ -12,7 +12,7 @@ class apiResponse {
 
 class apiClient {
 	const API_URL = 'https://api.dnfirst.com/v1/';
-	const SANDBOX_API_URL = 'https://sandbox-api.dnfirst.com/v1/';
+	const SANDBOX_API_URL = 'https://api-sandbox.dnfirst.com/v1/';
 
 	public $sandboxMode;
 	public $authToken;
