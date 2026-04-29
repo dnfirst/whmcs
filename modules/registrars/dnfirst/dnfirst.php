@@ -1227,7 +1227,28 @@ function DNFirst_GetTldPricing($params) {
 }
 
 function DNFirst_ResendTransfer(array $params) {
-	throw new Exception("Not yet implemented");
+	$domainName = $params['sld'] . '.' . $params['tld'];
+	try {
+		$api = DNFirst_GetApi($params);
+		$response = $api->call('domain/' . $domainName . '/transfer', 'PATCH', ["authCode" => $params['eppcode']]);
+		if ( $response->status === 404 ) {
+			throw new Exception("Domain name does not exist");
+		}
+		if ( $response->status === 460 ) {
+			throw new Exception("Invalid authorization code");
+		}
+		if ( $response->status === 405 ) {
+			throw new Exception("Domain currently ineligible for transfer");
+		}
+		if ( $response->status !== 204 ) {
+			throw new Exception("Failed to request domain transfer");
+		}
+
+	} catch (\Exception $e) {
+		return array(
+			'error' => $e->getMessage(),
+		);
+	}
 }
 function DNFirst_ResendValidationMails(array $params) {
 
