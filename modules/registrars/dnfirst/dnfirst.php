@@ -255,9 +255,17 @@ function DNFirst_RenewDomain($params) {
 
 	$premiumDomainsEnabled = (bool)$params['premiumEnabled'];
 
+	if ( $params['expiryDate'] instanceof DateTime ) {
+		$newExpiration = clone $params['expiryDate'];
+		$newExpiration->modify('+1 year');
+	} else {
+		return array("error" => "Expiry date is not a valid date object");
+	}
+
 	$postData = [
 		"premiumDomains" => $premiumDomainsEnabled,
 		"years" => $params['regperiod'],
+		"newExpiration" => $newExpiration->format('Y-m-d'),
 	];
 
 	if ($premiumDomainsEnabled && isset($params['premiumCost'])) {
@@ -271,7 +279,7 @@ function DNFirst_RenewDomain($params) {
 		if ( $response->status === 404 ) {
 			throw new Exception("Domain does not exist");
 		}
-		if ( $response->status !== 201 ) {
+		if ( $response->status !== 200 ) {
 			throw new Exception("Failed to renew domain");
 		}
 
