@@ -668,7 +668,7 @@ function DNFirst_GetDomainInformation($params) {
 		STATUS_PENDING_DELETE
 		 */
 		$status = Domain::STATUS_ACTIVE;
-		if (is_null($response->results['created'])) {
+		if (is_null($response->results['deactivated'])) {
 			$status = Domain::STATUS_INACTIVE;
 		} else if (!is_null($response->results['expires']) && (new DateTime($response->results['expires'])) < ( new DateTime) ) {
 			$status = Domain::STATUS_EXPIRED;
@@ -679,11 +679,11 @@ function DNFirst_GetDomainInformation($params) {
 		return (new Domain)
 			->setDomain($domainName)
 			->setNameservers($response->results['nameServers'])
-			->setRegistrationStatus(Domain::STATUS_ACTIVE)
+			->setRegistrationStatus($status)
 			->setTransferLock($response->results['lock'])
 			->setTransferLockExpiryDate(!is_null($response->results['transferLockExpires']) ? Carbon::createFromFormat('Y-m-d', $response->results['transferLockExpires']) : null)
 			->setExpiryDate(Carbon::createFromFormat('Y-m-d', $response->results['expires'])) // $response['expirydate'] = YYYY-MM-DD
-			->setRestorable($response->results['restorable'])
+			->setRestorable(!empty($response->results['restoreUntil']))
 			->setIdProtectionStatus($response->results['privacyProtection'])
 			->setDnsManagementStatus($response->results['dnsManagement'])
 			->setEmailForwardingStatus(false)
