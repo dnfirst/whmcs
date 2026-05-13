@@ -1166,8 +1166,11 @@ function DNFirst_TransferSync($params) {
 		if ( $response->status !== 200 ) {
 			throw new Exception("Failed to retrieve domain information");
 		}
+		if ( !empty($response->results['deactivated']) ) {
+			throw new Exception("Domain is deactivated");
+		}
 
-		if ($response->results['transfer']['status'] === 'none' && !empty($response->results['expires']) ) {
+		if ( empty($response->results['transfer']) && !empty($response->results['expires']) ) {
 			return array(
 				'completed' => true,
 				'expirydate' => $response->results['expires'], // Format: YYYY-MM-DD
