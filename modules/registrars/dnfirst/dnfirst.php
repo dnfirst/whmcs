@@ -257,7 +257,7 @@ function DNFirst_RenewDomain($params) {
 
 	if ( $params['expiryDate'] instanceof DateTime ) {
 		$newExpiration = clone $params['expiryDate'];
-		$newExpiration->modify('+1 year');
+		$newExpiration->modify("+{$params['regperiod']} year");
 	} else {
 		return array("error" => "Expiry date is not a valid date object");
 	}
