@@ -257,6 +257,7 @@ function DNFirst_RenewDomain($params) {
 
 	if ( $params['expiryDate'] instanceof DateTime ) {
 		$newExpiration = clone $params['expiryDate'];
+		$newExpiration->setTimezone(new DateTimeZone('UTC'));
 		$newExpiration->modify("+{$params['regperiod']} year");
 	} else {
 		return array("error" => "Expiry date is not a valid date object");
@@ -635,38 +636,7 @@ function DNFirst_GetDomainInformation($params) {
 		if ( $response->status !== 200 ) {
 			throw new Exception("Failed to retrieve domain information");
 		}
-		/*
-		 * Array
-		(
-				[domainName] => blahasdfasdf234234.com
-				[nameServers] => Array
-						(
-								[0] => ns1.quantumnames.com
-								[1] => ns2.quantumnames.com
-						)
 
-				[hostServers] => Array
-						(
-						)
-
-				[created] => 2026-03-31
-				[expires] => 2027-03-31
-				[lock] =>
-				[privacyProtection] =>
-		)
-
-		STATUS_ARCHIVED
-
-		STATUS_DELETED
-
-		STATUS_EXPIRED
-
-		STATUS_INACTIVE
-
-		STATUS_SUSPENDED
-
-		STATUS_PENDING_DELETE
-		 */
 		$status = Domain::STATUS_ACTIVE;
 		if (is_null($response->results['deactivated'])) {
 			$status = Domain::STATUS_INACTIVE;
