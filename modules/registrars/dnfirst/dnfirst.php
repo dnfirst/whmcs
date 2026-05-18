@@ -21,7 +21,7 @@ use WHMCS\Module\Registrar\DNFirst\apiClient;
  */
 function DNFirst_MetaData() {
 	return array(
-		'DisplayName' => 'DNFirst Registrar Module',
+		'DisplayName' => 'DNFirst',
 		'APIVersion' => '1.0',
 	);
 }
@@ -316,6 +316,7 @@ function DNFirst_GetNameservers($params) {
 			'ns3' => isset($nameServers[2]) ? $nameServers[2] : '' ,
 			'ns4' => isset($nameServers[3]) ? $nameServers[3] : '' ,
 			'ns5' => isset($nameServers[4]) ? $nameServers[4] : '' ,
+			'result' => 'success',
 		);
 
 	} catch ( Exception $e ) {
@@ -645,14 +646,21 @@ function DNFirst_GetDomainInformation($params) {
 		} else if ($response->results['suspended']) {
 			$status = Domain::STATUS_SUSPENDED;
 		}
+		$nameServers = ['ns1' => null, 'ns2' => null, 'ns3' => null, 'ns4' => null, 'ns5' => null, 'result' => 'success'];
+		$ns=1;
+		foreach ($response->results['nameServers'] as $nameServer) {
+			$nameServers["ns{$ns}"] = $nameServer;
+			$ns++;
+		}
+		$tz = new DateTimeZone('UTC');
 
 		return (new Domain)
 			->setDomain($domainName)
-			->setNameservers($response->results['nameServers'])
+			->setNameservers($nameServers)
 			->setRegistrationStatus($status)
 			->setTransferLock($response->results['lock'])
-			->setTransferLockExpiryDate(!is_null($response->results['transferLockExpires']) ? Carbon::createFromFormat('Y-m-d', $response->results['transferLockExpires']) : null)
-			->setExpiryDate(Carbon::createFromFormat('Y-m-d', $response->results['expires'])) // $response['expirydate'] = YYYY-MM-DD
+			->setTransferLockExpiryDate(!is_null($response->results['transferLockExpires']) ? Carbon::createFromFormat('Y-m-d', $response->results['transferLockExpires'], $tz) : null)
+			->setExpiryDate(Carbon::createFromFormat('Y-m-d', $response->results['expires'], $tz)) // $response['expirydate'] = YYYY-MM-DD
 			->setRestorable(!empty($response->results['restoreUntil']))
 			->setIdProtectionStatus($response->results['privacyProtection'])
 			->setDnsManagementStatus($response->results['dnsManagement'])
@@ -773,6 +781,11 @@ function DNFirst_GetDNS($params) {
 
 		$hostRecords = array();
 		foreach ($response->results as $record) {
+
+			if ( $record['type'] === 'PROXY' ) {
+				$record['type'] = 'IFRAME';
+			}
+
 			$hostRecords[] = array(
 				"hostname" => $record['name'], // eg. www
 				"type" => $record['type'], // eg. A
@@ -802,9 +815,29 @@ function DNFirst_SaveDNS($params) {
 	$domainName = $params['sld'] . '.' . $params['tld'];
 	$api = DNFirst_GetApi($params);
 	try {
-		$records = $params['hostrecords'];
+		$records = $params['dnsrecords'];
 
-		$response = $api->call('dns/' . $domainName . '/records', 'POST', $records);
+		$hostRecords = [];
+		foreach ($records as $record) {
+
+			if ( $record['type'] === 'FRAME' ) {
+				$record['type'] = 'PROXY';
+			} if ( $record['type'] === 'MXE' ) {
+				$hostRecords[] = ["name" => "mail", "type" => "A", "content" => $record['address'], "pri" => NULL];
+
+				$record['type'] = 'MX';
+				$record['address'] = "mail.{$domainName}";
+			}
+
+			$hostRecords[] = array(
+				"name" => $record['hostname'], // eg. www
+				"type" => $record['type'], // eg. A
+				"content" => $record['address'], // eg. 10.0.0.1
+				"pri" => $record['type'] === 'MX' ? $record['priority'] : NULL, // eg. 10 (N/A for non-MX records)
+			);
+		}
+
+		$response = $api->call('dns/' . $domainName . '/records', 'PUT', $hostRecords);
 		if ( $response->status === 404 ) {
 			throw new Exception("Domain name does not exist");
 		}
