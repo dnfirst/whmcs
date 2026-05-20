@@ -251,6 +251,16 @@ function DNFirst_TransferDomain($params) {
 
 function DNFirst_RenewDomain($params) {
 
+	logModuleCall(
+		'dnfirst',
+		"RenewDomain",
+		$params,
+		NULL,
+		NULL,
+		NULL
+	);
+
+
 	$domainName = $params['sld'] . '.' . $params['tld'];
 
 	$premiumDomainsEnabled = (bool)$params['premiumEnabled'];
@@ -578,10 +588,20 @@ function DNFirst_CheckAvailability($params) {
 			// Return premium information if applicable
 			if ($domain['premium']) {
 				$searchResult->setPremiumDomain(true);
+
+				$api = DNFirst_GetApi($params);
+				$subResponse = $api->call("domain/{$domain['domainName']}/check?feeType=renew", 'GET');
+				if ( $subResponse->status !== 200 ) {
+					throw new Exception("Failed to retrieve domain check response");
+				}
+				if ( $subResponse->results['feeType'] !== "renew" ) {
+					throw new Exception("Failed to retrieve domain check response");
+				}
+
 				$searchResult->setPremiumCostPricing(
 					array(
 						'register' => $domain['fee'],
-						//'renew' => $domain['premiumRenewPrice'],
+						'renew' => $subResponse->results['fee'],
 						'CurrencyCode' => 'USD',
 					)
 				);
