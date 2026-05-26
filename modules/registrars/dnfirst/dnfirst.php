@@ -657,22 +657,37 @@ function DNFirst_GetDomainInformation($params) {
 		if ( $response->status !== 200 ) {
 			throw new Exception("Failed to retrieve domain information");
 		}
+		$tz = new DateTimeZone('UTC');
+		$now = new DateTime('now', $tz);
+		$nameServers = ['ns1' => null, 'ns2' => null, 'ns3' => null, 'ns4' => null, 'ns5' => null, 'result' => 'success'];
+
+		if ( !empty($response->results['transfer']) && $response->results['transfer']['status'] === 'pending' ) {
+			return (new Domain)
+				->setDomain($domainName)
+				->setNameservers($nameServers)
+				->setRegistrationStatus(Domain::STATUS_ACTIVE)
+			;
+		}
 
 		$status = Domain::STATUS_ACTIVE;
-		if (is_null($response->results['deactivated'])) {
-			$status = Domain::STATUS_INACTIVE;
-		} else if (!is_null($response->results['expires']) && (new DateTime($response->results['expires'])) < ( new DateTime) ) {
+		if (!is_null($response->results['deactivated'])) {
+			if ( $response->results['transfer'] && $response->results['transfer']['status'] === "transferredAway") {
+				$status = Domain::STATUS_INACTIVE;
+			} elseif ( !empty($response->results['restoreUntil']) && (new DateTime($response->results['restoreUntil'], $tz)) > $now) {
+				$status = Domain::STATUS_PENDING_DELETE;
+			} else {
+				$status = Domain::STATUS_DELETED;
+			}
+		} else if (!is_null($response->results['expires']) && (new DateTime($response->results['expires'], $tz)) < $now ) {
 			$status = Domain::STATUS_EXPIRED;
 		} else if ($response->results['suspended']) {
 			$status = Domain::STATUS_SUSPENDED;
 		}
-		$nameServers = ['ns1' => null, 'ns2' => null, 'ns3' => null, 'ns4' => null, 'ns5' => null, 'result' => 'success'];
 		$ns=1;
 		foreach ($response->results['nameServers'] as $nameServer) {
 			$nameServers["ns{$ns}"] = $nameServer;
 			$ns++;
 		}
-		$tz = new DateTimeZone('UTC');
 
 		return (new Domain)
 			->setDomain($domainName)
