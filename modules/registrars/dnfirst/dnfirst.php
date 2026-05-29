@@ -814,19 +814,25 @@ function DNFirst_GetDNS($params) {
 			throw new Exception("Failed to retrieve dns records");
 		}
 
+
 		$hostRecords = array();
 		foreach ($response->results as $record) {
 
+			if ( $record['type'] === 'NS' ) {
+				continue;
+			}
 			if ( $record['type'] === 'PROXY' ) {
-				$record['type'] = 'IFRAME';
+				$record['type'] = 'FRAME';
 			}
 
-			$hostRecords[] = array(
-				"hostname" => $record['name'], // eg. www
-				"type" => $record['type'], // eg. A
-				"address" => $record['content'], // eg. 10.0.0.1
-				"priority" => $record['pri'], // eg. 10 (N/A for non-MX records)
-			);
+			foreach ( $record["records"] as $content ) {
+				$hostRecords[] = array(
+					"hostname" => rtrim(str_replace($domainName,'',$record['name']), '.'), // eg. www
+					"type" => $record['type'], // eg. A
+					"address" => $content, // eg. 10.0.0.1
+					"priority" => $record['pri'], // eg. 10 (N/A for non-MX records)
+				);
+			}
 		}
 		return $hostRecords;
 
@@ -848,12 +854,37 @@ function DNFirst_GetDNS($params) {
  */
 function DNFirst_SaveDNS($params) {
 	$domainName = $params['sld'] . '.' . $params['tld'];
+
 	$api = DNFirst_GetApi($params);
 	try {
+		$hostRecords = [];
+
+		$response = $api->call('dns/' . $domainName . '/records', 'GET');
+		if ( $response->status === 404 ) {
+			throw new Exception("Domain name does not exist");
+		}
+		if ( $response->status !== 200 ) {
+			throw new Exception("Failed to retrieve existing dns records");
+		}
+		//WHMCS does not allow NS records to be edited, so pull them from the API before sending the command to replace all records
+		foreach ($response->results as $record) {
+			if ( $record['type'] === 'NS' ) {
+				$hostRecords[] = $record;
+			}
+		}
+
 		$records = $params['dnsrecords'];
 
-		$hostRecords = [];
 		foreach ($records as $record) {
+			if ( empty($record['hostname']) && empty($record['address']) ) {
+				continue;
+			}
+
+			$recordHostname = $domainName .".";
+			if ( $record['hostname'] ) {
+				$recordHostname = $record['hostname'] . '.' . $recordHostname;
+			}
+			$record['ttl'] = 3600;
 
 			if ( $record['type'] === 'FRAME' ) {
 				$record['type'] = 'PROXY';
@@ -864,21 +895,31 @@ function DNFirst_SaveDNS($params) {
 				$record['address'] = "mail.{$domainName}";
 			}
 
-			$hostRecords[] = array(
-				"name" => $record['hostname'], // eg. www
-				"type" => $record['type'], // eg. A
-				"content" => $record['address'], // eg. 10.0.0.1
-				"pri" => $record['type'] === 'MX' ? $record['priority'] : NULL, // eg. 10 (N/A for non-MX records)
-			);
+			$newRecord = ["name" => $recordHostname, "type" => $record['type'], "ttl" => $record['ttl'], "records" => [str_replace("&quot;",'"',$record['address'])]];
+			$skip = false;
+			foreach ( $hostRecords as $key => $value ) {
+				if ( $value["name"] == $newRecord["name"] && $value["type"] == $newRecord["type"] && !in_array($newRecord["records"][0],$value["records"])) {
+					array_push( $hostRecords[$key]["records"], $newRecord["records"][0] );
+					$skip = true;
+				}
+			}
+			if ( !$skip ) {
+				$hostRecords[] = $newRecord;
+			}
+
 		}
 
 		$response = $api->call('dns/' . $domainName . '/records', 'PUT', $hostRecords);
 		if ( $response->status === 404 ) {
 			throw new Exception("Domain name does not exist");
 		}
-		if ( $response->status !== 201 ) {
+		if ( $response->status !== 204 ) {
 			throw new Exception("Failed to update dns records");
 		}
+
+		return array(
+			'success' => true,
+		);
 
 	} catch (\Exception $e) {
 		return array(
