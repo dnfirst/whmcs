@@ -826,11 +826,18 @@ function DNFirst_GetDNS($params) {
 			}
 
 			foreach ( $record["records"] as $content ) {
+				if ( $record['type'] === 'MX' ) {
+					$split = explode(" ", $content);
+					$content = $split[1];
+					$priority = $split[0];
+				} else {
+					$priority = null;
+				}
 				$hostRecords[] = array(
 					"hostname" => rtrim(str_replace($domainName,'',$record['name']), '.'), // eg. www
 					"type" => $record['type'], // eg. A
 					"address" => $content, // eg. 10.0.0.1
-					"priority" => $record['pri'], // eg. 10 (N/A for non-MX records)
+					"priority" => $priority, // eg. 10 (N/A for non-MX records)
 				);
 			}
 		}
@@ -885,17 +892,24 @@ function DNFirst_SaveDNS($params) {
 				$recordHostname = $record['hostname'] . '.' . $recordHostname;
 			}
 			$record['ttl'] = 3600;
+			$record['address'] = str_replace("&quot;",'"',$record['address']);
+			if ( $record['type'] === 'MX' ) {
+				$record['address'] = "{$record['priority']} {$record['address']}";
+			}
+			if ( !str_ends_with($record['address'],'.') && in_array($record['type'],['CNAME','MX']) ) {
+				$record['address'] .= '.';
+			}
 
 			if ( $record['type'] === 'FRAME' ) {
 				$record['type'] = 'PROXY';
 			} if ( $record['type'] === 'MXE' ) {
-				$hostRecords[] = ["name" => "mail", "type" => "A", "content" => $record['address'], "pri" => NULL];
+				$hostRecords[] = ["name" => "mail", "type" => "A", "content" => $record['address'] .".", "pri" => NULL];
 
 				$record['type'] = 'MX';
-				$record['address'] = "mail.{$domainName}";
+				$record['address'] = "mail.{$domainName}.";
 			}
 
-			$newRecord = ["name" => $recordHostname, "type" => $record['type'], "ttl" => $record['ttl'], "records" => [str_replace("&quot;",'"',$record['address'])]];
+			$newRecord = ["name" => $recordHostname, "type" => $record['type'], "ttl" => $record['ttl'], "records" => [$record['address']]];
 			$skip = false;
 			foreach ( $hostRecords as $key => $value ) {
 				if ( $value["name"] == $newRecord["name"] && $value["type"] == $newRecord["type"] && !in_array($newRecord["records"][0],$value["records"])) {
