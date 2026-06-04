@@ -888,8 +888,8 @@ function DNFirst_SaveDNS($params) {
 			}
 
 			$recordHostname = $domainName .".";
-			if ( $record['hostname'] ) {
-				$recordHostname = $record['hostname'] . '.' . $recordHostname;
+			if ( !empty($record['hostname']) && $record['hostname'] !== '@' && $record['hostname'] !== '.' ) {
+				$recordHostname = rtrim($record['hostname'],'.') . '.' . $recordHostname;
 			}
 			$record['ttl'] = 3600;
 			$record['address'] = str_replace("&quot;",'"',$record['address']);
