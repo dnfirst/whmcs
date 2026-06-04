@@ -187,7 +187,7 @@ function DNFirst_TransferDomain($params) {
 	$postData = [
 		"years" => $params['regperiod'],
 		"premiumDomains" => (bool)$params['premiumEnabled'],
-		"eppCode" => $params['eppcode'],
+		"authCode" => $params['eppcode'],
 		"nameServers" => [$params['ns1_punycode'], $params['ns2_punycode'], $params['ns3_punycode'], $params['ns4_punycode'], $params['ns5_punycode']],
 		"registrant" => [
 			"company_name" => $params["companyname"],
