@@ -1035,8 +1035,7 @@ function DNFirst_GetEPPCode($params) {
 /**
  * Release a Domain.
  *
- * Used to initiate a transfer out such as an IPSTAG change for .UK
- * domain names.
+ * Approve a domain name transfer away request.
  *
  * @param array $params common module parameters
  *
@@ -1045,15 +1044,30 @@ function DNFirst_GetEPPCode($params) {
  *
  */
 function DNFirst_ReleaseDomain($params) {
+	$domainName = $params['sld'] . '.' . $params['tld'];
 	$api = DNFirst_GetApi($params);
+	try {
+		$response = $api->call('domain/' . $domainName ."/transferApprove", 'POST');
 
-	// domain parameters
-	$sld = $params['sld'];
-	$tld = $params['tld'];
+		if ( $response->status === 404 ) {
+			throw new Exception("Domain name does not exist");
+		}
 
-	return array(
-		'error' => "Unimplemented",
-	);
+		if ( $response->status === 400 ) {
+			throw new Exception("Invalid domain state, may not approve transfer away request");
+		}
+
+		if ( $response->status !== 204 ) {
+			throw new Exception("Failed to approve domain name transfer away request");
+		}
+
+
+		return ['success' => 'success'];
+	} catch ( \Exception $e ) {
+		return array(
+			'error' => $e->getMessage(),
+		);
+	}
 }
 
 /**
