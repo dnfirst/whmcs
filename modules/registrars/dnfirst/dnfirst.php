@@ -1162,7 +1162,7 @@ function DNFirst_ModifyNameserver($params) {
 			'ipAddresses' => [$params['newipaddress']],
 		];
 
-		$response = $api->call('domain/' . $domainName .'/host'.$params['nameserver'], 'PATCH', $postFields);
+		$response = $api->call('domain/' . $domainName .'/host/'.$params['nameserver'], 'PATCH', $postFields);
 
 		if ( $response->status === 404 ) {
 			throw new Exception("Domain name does not exist");
