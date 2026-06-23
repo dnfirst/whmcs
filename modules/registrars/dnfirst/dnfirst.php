@@ -834,7 +834,7 @@ function DNFirst_GetDNS($params) {
 					$priority = null;
 				}
 				$hostRecords[] = array(
-					"hostname" => rtrim(substr_replace($record['name'],'',-strlen($domainName)), '.'), // eg. www
+					"hostname" => rtrim(substr_replace(rtrim($record['name'], '.'),'',-strlen($domainName)),'.'), // eg. www
 					"type" => $record['type'], // eg. A
 					"address" => $content, // eg. 10.0.0.1
 					"priority" => $priority, // eg. 10 (N/A for non-MX records)
