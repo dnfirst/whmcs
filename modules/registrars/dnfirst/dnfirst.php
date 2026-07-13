@@ -573,7 +573,7 @@ function DNFirst_CheckAvailability($params) {
 
 			// Determine the appropriate status to return
 			if ($domain['error'] ) {
-				$status = SearchResult::UNKNOWN;
+				$status = SearchResult::STATUS_UNKNOWN;
 			} elseif ($domain['available']) {
 				$status = SearchResult::STATUS_NOT_REGISTERED;
 			} elseif ($domain['reserved']) {
@@ -631,20 +631,9 @@ function DNFirst_CheckAvailability($params) {
 			NULL
 		);
 
-		$results = new WHMCS\Domains\DomainLookup\ResultsList();
-
-		foreach ( $postData['domains'] as $domain ) {
-			$sld = substr($domain['domainName'],0, strpos($domain['domainName'],'.'));
-			$tld = str_replace($sld.".","", $domain['domainName']);
-
-			$searchResult = new SearchResult($sld,$tld);
-			$searchResult->setStatus(SearchResult::UNKNOWN);
-
-			$results->append($searchResult);
-		}
-
-
-		return $results;
+		return [
+			"error" => "Failed to retrieve domain availability: " . $e->getMessage()
+		];
 	}
 
 }
@@ -670,6 +659,28 @@ function DNFirst_GetDomainSuggestions($params) {
 		}
 
 
+		$postData["domains"] = [];
+		foreach ($response->results as $domain) {
+
+			$sld = substr($domain['domainName'], 0, strpos($domain['domainName'], '.'));
+			$tld = str_replace($sld . ".", "", $domain['domainName']);
+
+			if ($domain['error'] || !$domain['available'] || !$domain['premium']) {
+				continue;
+			}
+			$postData['domains'][] = $domain['domainName'];
+		}
+
+		$postData["feeType"] = "renew";
+
+		if ( !empty($postData['domains'])) {
+			$api = DNFirst_GetApi($params);
+			$renewCheckResponse = $api->call('domain/search', 'POST', $postData);
+			if ($renewCheckResponse->status !== 200) {
+				throw new Exception("Failed to retrieve domain check response");
+			}
+		}
+
 		foreach ($response->results as $domain) {
 
 			$sld = substr($domain['domainName'],0, strpos($domain['domainName'],'.'));
@@ -689,23 +700,20 @@ function DNFirst_GetDomainSuggestions($params) {
 			// Return premium information if applicable
 			if ($domain['premium']) {
 				$searchResult->setPremiumDomain(true);
-
-				$api = DNFirst_GetApi($params);
-				$subResponse = $api->call("domain/{$domain['domainName']}/check?feeType=renew", 'GET');
-				if ( $subResponse->status !== 200 ) {
-					throw new Exception("Failed to retrieve domain check response");
+				foreach ( $renewCheckResponse->results as $subDomain ) {
+					if ( $subDomain['domainName'] === $domain['domainName'] ) {
+						$searchResult->setPremiumCostPricing(
+							array(
+								'register' => $domain['fee'],
+								'renew' => $subDomain['fee'],
+								'CurrencyCode' => 'USD',
+							)
+						);
+						break;
+					}
 				}
-				if ( $subResponse->results['feeType'] !== "renew" ) {
-					throw new Exception("Failed to retrieve domain check response");
-				}
 
-				$searchResult->setPremiumCostPricing(
-					array(
-						'register' => $domain['fee'],
-						'renew' => $subResponse->results['fee'],
-						'CurrencyCode' => 'USD',
-					)
-				);
+
 			}
 
 			// Append to the search results list
